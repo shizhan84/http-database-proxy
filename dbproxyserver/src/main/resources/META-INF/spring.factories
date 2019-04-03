@@ -1,0 +1,5 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+  cn.okcoming.baseconfig.DefaultAsyncConfig,\
+  cn.okcoming.baseconfig.DefaultJMXConnectorConfig,\
+  cn.okcoming.baseconfig.DefaultDruidConfig,\
+  cn.okcoming.baseconfig.DefaultWebSecurityConfigurer
