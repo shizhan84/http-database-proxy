@@ -1,16 +1,15 @@
 package cn.okcoming.dbproxy.bean;
 
-import io.swagger.annotations.ApiModelProperty;
+import cn.okcoming.dbproxy.util.Constants;
 import lombok.Data;
 
 
 @Data
 public class BaseResponse {
 
-    @ApiModelProperty(value = "code")
-    protected String code = "0";
-    @ApiModelProperty(value = "message")
-    protected String message = "执行成功";
+    private String code = Constants.SUCCESS;
+    private String message = "执行成功";
 
 }
+
 

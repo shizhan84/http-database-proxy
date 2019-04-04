@@ -1,17 +1,26 @@
 package cn.okcoming.dbproxy.core;
 
 import java.math.BigDecimal;
-import java.sql.Date;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 /**
  * Created by bluces on 2016/12/30.
  */
 public class DefaultDBRow implements DBRow {
+
+    private static final ThreadLocal<DateFormat> DATETIME_FORMAT = ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ"));
+    private static final ThreadLocal<DateFormat> DATE_FORMAT = ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd"));
+
     private Map<String,Object> rowMap;
 
+    public static void main(String[] args) throws ParseException {
+        System.out.println(new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ").parse("2019-04-01T07:41:26.000+0000"));
+    }
     public DefaultDBRow(final List<Object> row,final  List<String> cols,final  List<Integer> types){
         rowMap = new HashMap<>();
         for (int j = 0; j < cols.size(); j++) {//列
@@ -58,10 +67,30 @@ public class DefaultDBRow implements DBRow {
                         rowMap.put(colName, Short.valueOf(String.valueOf(colValue)));
                         break;
                     case Types.DATE:
-                        rowMap.put(colName, new Date((Long) colValue));
+                        if(Long.class.isInstance(colValue)){
+                            rowMap.put(colName, new Date((Long) colValue));
+                        }else if(colValue instanceof String){//"2019-04-26"
+                            try {
+                                rowMap.put(colName, DATE_FORMAT.get().parse((String)colValue));
+                            } catch (ParseException e) {
+                                e.printStackTrace();
+                            }
+                        }else{
+                            rowMap.put(colName,colValue);
+                        }
                         break;
                     case Types.TIMESTAMP:
-                        rowMap.put(colName, new Timestamp((Long) colValue));
+                        if(Long.class.isInstance(colValue)){
+                            rowMap.put(colName, new Timestamp((Long) colValue));
+                        }else if(colValue instanceof String){//"2019-04-01T07:41:26.000+0000
+                            try {
+                                rowMap.put(colName, new Timestamp(DATETIME_FORMAT.get().parse((String)colValue).getTime()));
+                            } catch (ParseException e) {
+                                e.printStackTrace();
+                            }
+                        }else{
+                            rowMap.put(colName,colValue);
+                        }
                         break;
                     case Types.BINARY:
                     case Types.VARBINARY:

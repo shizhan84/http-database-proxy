@@ -1,55 +1,58 @@
-//package cn.okcoming.dbproxy.client.impl;
-//
-//import cn.okcoming.dbproxy.bean.*;
-//import cn.okcoming.dbproxy.client.JdbcOperationClient;
-//import cn.okcoming.dbproxy.core.DBRow;
-//import cn.okcoming.dbproxy.core.DBRowMapper;
-//import cn.okcoming.dbproxy.core.DefaultDBRow;
-//import lombok.extern.slf4j.Slf4j;
-//import org.slf4j.Logger;
-//import org.slf4j.LoggerFactory;
-//import org.springframework.web.client.RestTemplate;
-//import rx.functions.Func1;
-//
-//
-//import java.text.SimpleDateFormat;
-//import java.time.LocalDateTime;
-//import java.time.format.DateTimeFormatter;
-//import java.util.*;
-//import java.util.function.Supplier;
-//
-///**
-// * Created by bluces on 2016/12/28.
-// */
-//@Slf4j
-//public class JdbcOperationClientImpl implements JdbcOperationClient {
-//    private static final Logger LOG = LoggerFactory.getLogger(JdbcOperationClientImpl.class);
-//
-//
-//    private RestTemplate restTemplate;
-//    private String _project;
-//    private String _database;
-//
-//    public void setProject(String project) {
-//        this._project = project;
-//    }
-//
-//    public void setDatabase(String database) {
-//        this._database = database;
-//    }
-//
-//    private  <T> T execute(String apiName,String member,Supplier<T> supplier){
-//        log.info("http {} api: {}",apiName,member);
-//        try{
-//            T ret = supplier.get();
-//            log.debug("{}", ret);
-//            return ret;
-//        }catch (Exception e){
-//            log.error("",e);
-//        }
-//        return null;
-//    }
-//
+package cn.okcoming.dbproxy.client.impl;
+
+import cn.okcoming.dbproxy.bean.*;
+import cn.okcoming.dbproxy.client.JdbcOperationClient;
+import cn.okcoming.dbproxy.core.DBRow;
+import cn.okcoming.dbproxy.core.DBRowMapper;
+import cn.okcoming.dbproxy.core.DefaultDBRow;
+import cn.okcoming.dbproxy.util.Constants;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.*;
+import org.springframework.web.client.RestTemplate;
+import rx.functions.Func1;
+
+
+import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.function.Supplier;
+
+/**
+ * Created by bluces on 2016/12/28.
+ */
+@Slf4j
+public class JdbcOperationClientImpl implements JdbcOperationClient {
+    private RestTemplate _restTemplate;
+    private String _project;
+    private String _database;
+
+    public void setRestTemplate(RestTemplate restTemplate){
+        this._restTemplate = restTemplate;
+    }
+
+    public void setProject(String project) {
+        this._project = project;
+    }
+
+    public void setDatabase(String database) {
+        this._database = database;
+    }
+
+    private  <T> T execute(String apiName,String member,Supplier<T> supplier){
+        log.info("http {} api: {}",apiName,member);
+        try{
+            T ret = supplier.get();
+            log.debug("{}", ret);
+            return ret;
+        }catch (Exception e){
+            log.error("",e);
+        }
+        return null;
+    }
+
 //    /**分页接口数据全都取下来*/
 //    private  <RESP extends AbstractPageResponse<DATA>,DATA> List<DATA> fetchAllPage(String url,Class<RESP> classes,Object... uriVariables){
 //        final List<DATA> all = new ArrayList<>();
@@ -101,96 +104,105 @@
 //            return null;
 //        }
 //    }
-//
-//
-//    private DateTimeFormatter DTF =   DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
-//
-//    private Object[] convert(Object[] args){
-//        if(args == null){
-//            return null;
-//        }
-//        for(int i=0;i<args.length;i++){
-//            if(args[i] instanceof Date){
-//                args[i] =  new SimpleDateFormat("yyyyMMddHHmmss").format(args[i]);
-//            }
-//        }
-//        return args;
-//    }
-//
-//
-//    public void execute(String sql)  {
-//
-//    }
-//
-//
-//    @Override
-//    public <T> Observable<List<T>> queryForList(final String sql, final Class<T> requiredType,Object... args)  {
-//        QueryRequest request = new QueryRequest();
-//        request.setParameters(convert(args));
-//        request.setQuery(sql);
-//        request.setProject(_project);
-//        request.setDatabase(_database);
-//
-//        restTemplate.exchange()
-//        return _signalClient.interaction().request(request).<QueryResponse>build().map(new Func1<QueryResponse, List<T>>() {
-//            @Override
-//            public List<T> call(final QueryResponse resp) {
-//                LOG.debug("query {}",resp);
-//                if (Objects.equals("0", resp.getCode())) {
-//                    List<List<Object>> rows = resp.getRowList();
-//                    List<String> cols = resp.getColList();
-//                    List<Integer> types = resp.getTypeList();
-//
-//                    List<T> ret = new ArrayList<>();
-//                    for (List<Object> row : rows) {//行
-//                        T bean = new DefaultDBRow(row, cols, types).getOnlyObject(requiredType);
-//                        ret.add(bean);
-//                    }
-//                    return ret;
-//                } else {
-//                    LOG.error(resp.getMessage());
-//                    throw new RuntimeException(resp.getMessage());
-//                }
-//            }
-//        });
-//    }
-//
-//
+
+    private DateTimeFormatter DTF =   DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+
+    private Object[] convert(Object[] args){
+        if(args == null){
+            return null;
+        }
+        for(int i=0;i<args.length;i++){
+            if(args[i] instanceof Date){
+                args[i] =  new SimpleDateFormat("yyyyMMddHHmmss").format(args[i]);
+            }
+        }
+        return args;
+    }
+
+    public void execute(String sql)  {
+    }
+
+    @Override
+    public <T> List<T> queryForList(final String sql, final Class<T> requiredType,Object... args)  {
+        QueryRequest request = new QueryRequest();
+        request.setParameters(convert(args));
+        request.setQuery(sql);
+        request.setProject(_project);
+        request.setDatabase(_database);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON_UTF8);
+        headers.set(Constants.X_UUID,UUID.randomUUID().toString());
+
+        HttpEntity<QueryRequest> httpEntity = new HttpEntity(request,headers);
+
+        ResponseEntity<QueryResponse> responseEntity = _restTemplate.exchange("http://10.100.12.29/dbproxy/query", HttpMethod.POST,httpEntity,QueryResponse.class);
+        if(responseEntity.getBody() != null){
+            QueryResponse resp = responseEntity.getBody();
+            log.debug("query {}",resp);
+            if (Objects.equals(Constants.SUCCESS, resp.getCode())) {
+                List<List<Object>> rows = resp.getRowList();
+                List<String> cols = resp.getColList();
+                List<Integer> types = resp.getTypeList();
+
+                List<T> ret = new ArrayList<>();
+                for (List<Object> row : rows) {//行
+                    T bean = new DefaultDBRow(row, cols, types).getOnlyObject(requiredType);
+                    ret.add(bean);
+                }
+                return ret;
+            } else {
+                log.error(resp.getMessage());
+                throw new RuntimeException(resp.getMessage());
+            }
+        }else{
+            throw new RuntimeException("远程访问出错:"+responseEntity.getStatusCode().toString());
+        }
+    }
+
+
 //    @Override
 //    public <T> Observable<List<T>> query(final String sql, final DBRowMapper<T> rowMapper)  {
 //        return this.query(sql,rowMapper,null);
 //    }
 //
-//    @Override
-//    public <T> Observable<List<T>> query(final String sql, final DBRowMapper<T> rowMapper,Object... args)  {
-//        QueryRequest request = new QueryRequest();
-//        request.setParameters(convert(args));
-//        request.setQuery(sql);
-//        request.setProject(_project);
-//        request.setDatabase(_database);
-//        return _signalClient.interaction().request(request).<QueryResponse>build().map(new Func1<QueryResponse, List<T>>() {
-//
-//            @Override
-//            public List<T> call(final QueryResponse resp) {
-//                if (Objects.equals("0", resp.getCode())) {
-//                    List<List<Object>> rows = resp.getRowList();
-//                    List<String> cols = resp.getColList();
-//                    List<Integer> types = resp.getTypeList();
-//
-//                    List<T> ret = new ArrayList<>();
-//                    for (List<Object> row : rows) {//行
-//                        T bean = rowMapper.mapRow(new DefaultDBRow(row, cols, types));
-//                        ret.add(bean);
-//                    }
-//                    return ret;
-//                } else {
-//                    LOG.error(resp.getMessage());
-//                    throw new RuntimeException(resp.getMessage());
-//                }
-//            }
-//        });
-//    }
-//
+    @Override
+    public <T> List<T> query(final String sql, final DBRowMapper<T> rowMapper,Object... args)  {
+        QueryRequest request = new QueryRequest();
+        request.setParameters(convert(args));
+        request.setQuery(sql);
+        request.setProject(_project);
+        request.setDatabase(_database);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON_UTF8);
+        headers.set(Constants.X_UUID,UUID.randomUUID().toString());
+
+        HttpEntity<QueryRequest> httpEntity = new HttpEntity(request,headers);
+
+        ResponseEntity<QueryResponse> responseEntity = _restTemplate.exchange("http://10.100.12.29/dbproxy/query", HttpMethod.POST,httpEntity,QueryResponse.class);
+        if(responseEntity.getBody() != null){
+            QueryResponse resp = responseEntity.getBody();
+            log.debug("query {}",resp);
+            if (Objects.equals(Constants.SUCCESS, resp.getCode())) {
+                    List<List<Object>> rows = resp.getRowList();
+                    List<String> cols = resp.getColList();
+                    List<Integer> types = resp.getTypeList();
+
+                    List<T> ret = new ArrayList<>();
+                    for (List<Object> row : rows) {//行
+                        T bean = rowMapper.mapRow(new DefaultDBRow(row, cols, types));
+                        ret.add(bean);
+                    }
+                    return ret;
+            } else {
+                log.error(resp.getMessage());
+                throw new RuntimeException(resp.getMessage());
+            }
+        }else{
+            throw new RuntimeException("远程访问出错:"+responseEntity.getStatusCode().toString());
+        }
+    }
+
 //    @Override
 //    public <T> Observable<T> queryForObject(final String sql,final DBRowMapper<T> rowMapper, Object... args)  {
 //        QueryRequest request = new QueryRequest();
@@ -366,5 +378,5 @@
 //            }
 //        });
 //    }
-//
-//}
+
+}

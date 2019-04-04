@@ -1,8 +1,8 @@
 package cn.okcoming.dbproxy.core;
 
 import java.math.BigDecimal;
-import java.sql.Date;
 import java.sql.Timestamp;
+import java.util.Date;
 
 /**
  *
