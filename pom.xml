@@ -3,8 +3,8 @@
 	<modelVersion>4.0.0</modelVersion>
 
     <groupId>cn.okcoming</groupId>
-    <artifactId>mysql-proxy</artifactId>
-    <version>0.0.1</version>
+    <artifactId>http-database-proxy</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <modules>

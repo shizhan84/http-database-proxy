@@ -1,4 +1,4 @@
-#mysql-proxy
+#http-database-proxy
 
 第一版本问题：
 - 不支持事务处理

@@ -18,7 +18,7 @@ fi
 
 HEAP_MEMORY=256m
 PERM_MEMORY=128m
-SERVER_NAME=proxy-server
+SERVER_NAME=dbproxy-server
 JMX_PORT=0
 LOCAL_IP=`ifconfig eth0 | grep "inet addr" | awk '{print $2}' | awk -F: '{print $2}'`
 
