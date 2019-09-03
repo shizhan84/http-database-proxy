@@ -48,7 +48,7 @@ public class DataController {
     }
 
     @PostMapping(value = "/batchUpdate", produces = { "application/json;charset=UTF-8" })
-    @ApiOperation(value ="批量更新", notes= ""  )
+    @ApiOperation(value ="批量更新", notes= "支持事务"  )
     @ResponseBody
     public BatchUpdateResponse batchUpdate(@RequestBody BatchUpdateRequest _request){
         BatchUpdateResponse _response = new BatchUpdateResponse();
@@ -63,7 +63,7 @@ public class DataController {
     @ResponseBody
     public BaseResponse execute(@RequestBody ExecuteRequest _request){
         BaseResponse _response = new BaseResponse();
-        _operatorDao.execute(_request.getDatabase(),_request.getExecute());
+        _operatorDao.execute(_request.getDatabase(),_request.getQuery());
 
         return _response;
     }

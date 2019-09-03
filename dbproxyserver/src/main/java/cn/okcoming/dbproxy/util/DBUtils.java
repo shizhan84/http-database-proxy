@@ -2,11 +2,15 @@ package cn.okcoming.dbproxy.util;
 
 import com.alibaba.druid.pool.DruidDataSource;
 import lombok.Data;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
 import java.sql.SQLException;
@@ -18,12 +22,28 @@ import java.util.*;
 public class DBUtils implements InitializingBean {
     private List<DBConnConfig> configs;
 
-    private static Map<String,JdbcOperations> dataSourceMap = new HashMap<>();
+    @Autowired
+    private DataSource dataSource;//默认的，也即内嵌的h2database
 
+    private static Map<String,DatabaseManagerContainer> dataSourceMap = new HashMap<>();
+
+    @Data
+    class DatabaseManagerContainer{
+        private DataSourceTransactionManager transactionManager;
+        private JdbcOperations jdbcOperations;
+
+        public DatabaseManagerContainer(DataSourceTransactionManager transactionManager) {
+            this.transactionManager = transactionManager;
+            this.jdbcOperations = new JdbcTemplate(transactionManager.getDataSource());
+        }
+    }
     @Override
     public void afterPropertiesSet(){
+        dataSourceMap.put("default",new DatabaseManagerContainer(new DataSourceTransactionManager(dataSource)));
+
         for(DBConnConfig config: configs){
-            dataSourceMap.put(config.getDatabase(),new JdbcTemplate(dataSource(config)));
+            DataSourceTransactionManager transactionManager = new DataSourceTransactionManager(dataSource(config));
+            dataSourceMap.put(config.getDatabase(),new DatabaseManagerContainer(transactionManager));
         }
     }
 
@@ -59,8 +79,14 @@ public class DBUtils implements InitializingBean {
     }
 
 
-    public static JdbcOperations jdbcOperations(String database){
-        return dataSourceMap.get(database);
+    public static JdbcOperations jdbcTemplate(String database){
+        if(StringUtils.isBlank(database)){
+            database = "default";
+        }
+        return dataSourceMap.get(database).getJdbcOperations();
     }
 
+    public static PlatformTransactionManager txManager(String database){
+        return dataSourceMap.get(database).getTransactionManager();
+    }
 }

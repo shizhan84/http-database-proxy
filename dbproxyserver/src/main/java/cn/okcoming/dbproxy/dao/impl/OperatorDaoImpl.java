@@ -2,38 +2,30 @@ package cn.okcoming.dbproxy.dao.impl;
 
 import cn.okcoming.dbproxy.dao.OperatorDao;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.ArgumentPreparedStatementSetter;
-import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.jdbc.core.PreparedStatementCreator;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.jdbc.support.rowset.SqlRowSet;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
-import java.util.Objects;
 
-import cn.okcoming.dbproxy.util.DBUtils;
+import static cn.okcoming.dbproxy.util.DBUtils.*;
 
 @Slf4j
 @Component
 public class OperatorDaoImpl implements OperatorDao {
 
-    @Autowired
-    private JdbcOperations jdbcOperations;//默认的，也即内嵌的h2database
 
-    private JdbcOperations jdbcTemplate(final String database){
-        if(database == null || Objects.equals(database,"default")) {
-            return jdbcOperations;
-        }else{
-            return DBUtils.jdbcOperations(database);
-        }
-    }
     @Override
     public SqlRowSet query(final String database,String query, Object[] parameters){
         return jdbcTemplate(database).queryForRowSet(query,parameters);
@@ -66,7 +58,18 @@ public class OperatorDaoImpl implements OperatorDao {
 
     @Override
     public int[] batchUpdate(final String database,String[] querys) {
-        return jdbcTemplate(database).batchUpdate(querys);
+        PlatformTransactionManager transactionManager = txManager(database);
+        DefaultTransactionDefinition def = new DefaultTransactionDefinition();
+        def.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
+        TransactionStatus status = transactionManager.getTransaction(def);
+        try {
+            int[] ret = jdbcTemplate(database).batchUpdate(querys);
+            transactionManager.commit(status);
+            return ret;
+        } catch (Exception e) {
+            transactionManager.rollback(status);
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
