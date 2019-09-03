@@ -4,7 +4,7 @@ import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 
 @Data
-abstract class BaseRequest {
+public abstract class BaseRequest {
 
     @ApiModelProperty(value = "项目名称 只做记录")
     protected String project;

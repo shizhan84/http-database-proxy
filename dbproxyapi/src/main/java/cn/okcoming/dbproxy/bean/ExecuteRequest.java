@@ -8,9 +8,7 @@ import lombok.Data;
  * DDL语句
  */
 @Data
-public class ExecuteRequest extends BaseRequest {
+public class ExecuteRequest extends DefaultBaseRequest {
 
-    @ApiModelProperty(value = "execute")
-    private String execute;
-    
+
 }

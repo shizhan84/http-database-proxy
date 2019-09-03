@@ -13,7 +13,4 @@ import lombok.Data;
 @ApiModel(value = "查询操作")
 public class QueryRequest extends DefaultBaseRequest {
 
-    @ApiModelProperty(value = "parameters")
-    private Object[] parameters;
-
 }

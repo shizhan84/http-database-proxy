@@ -15,9 +15,6 @@ import lombok.Data;
 @Data
 public class UpdateRequest extends DefaultBaseRequest {
 
-    @ApiModelProperty(value = "parameters")
-    private Object[] parameters;
-
     @ApiModelProperty(value = "是否返回最新插入记录的ID")
     private boolean needReturnId;
     

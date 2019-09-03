@@ -1,8 +1,8 @@
 package cn.okcoming.dbproxy.client.impl;
 
-import cn.okcoming.dbproxy.bean.QueryRequest;
-import cn.okcoming.dbproxy.bean.QueryResponse;
+import cn.okcoming.dbproxy.bean.*;
 import cn.okcoming.dbproxy.client.JdbcOperationClient;
+import cn.okcoming.dbproxy.core.DBRow;
 import cn.okcoming.dbproxy.core.DBRowMapper;
 import cn.okcoming.dbproxy.core.DefaultDBRow;
 import cn.okcoming.dbproxy.util.Constants;
@@ -13,6 +13,7 @@ import org.springframework.web.client.RestTemplate;
 import java.text.SimpleDateFormat;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 
@@ -115,32 +116,42 @@ public class JdbcOperationClientImpl implements JdbcOperationClient {
     }
 
     @FunctionalInterface
-    interface Function<R,X,Y,Z>{
+    interface Function3<R,X,Y,Z>{
         R action(X x,Y y,Z z);
     }
 
-    public <T> List<T> queryTemplate(Function<List<T>,List<List<Object>>,List<String>,List<Integer>> function,
-                             final String sql, Object... args){
-        QueryRequest request = new QueryRequest();
-        request.setParameters(convert(args));
-        request.setQuery(sql);
+    /**
+     * 组装需要发送的http request对象
+     * @param request
+     * @param sql
+     * @param args
+     * @return
+     */
+    private HttpEntity<? extends BaseRequest> assembleHttpEntity(BaseRequest request,String sql, Object[] args) {
         request.setProject(_project);
         request.setDatabase(_database);
+        if(request instanceof DefaultBaseRequest){
+            ((DefaultBaseRequest)request).setParameters(convert(args));
+            ((DefaultBaseRequest)request).setQuery(sql);
+        }
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON_UTF8);
-        headers.set(Constants.X_UUID,UUID.randomUUID().toString());
-        HttpEntity<QueryRequest> httpEntity = new HttpEntity(request,headers);
+        headers.set(Constants.X_UUID, UUID.randomUUID().toString());
+        return new HttpEntity(request,headers);
+    }
 
-        ResponseEntity<QueryResponse> responseEntity = _restTemplate.exchange(_baseUrl + "/query", HttpMethod.POST,httpEntity,QueryResponse.class);
+    /**
+     * http远程交互
+     * @param url
+     * @param httpEntity
+     * @param cls
+     */
+    private <T extends BaseResponse,R> R exchange(Function<T, R> func, String url, HttpEntity httpEntity, Class<T> cls){
+        ResponseEntity<T> responseEntity = _restTemplate.exchange(url, HttpMethod.POST,httpEntity,cls);
         if(responseEntity.getBody() != null){
-            QueryResponse resp = responseEntity.getBody();
-            log.debug("query {}",resp);
+            BaseResponse resp = responseEntity.getBody();
             if (Objects.equals(Constants.SUCCESS, resp.getCode())) {
-                List<List<Object>> rows = resp.getRowList();
-                List<String> cols = resp.getColList();
-                List<Integer> types = resp.getTypeList();
-
-                return function.action(rows,cols,types);
+                return  func.apply((T)resp);
             } else {
                 log.error(resp.getMessage());
                 throw new RuntimeException(resp.getMessage());
@@ -148,6 +159,41 @@ public class JdbcOperationClientImpl implements JdbcOperationClient {
         }else{
             throw new RuntimeException("远程访问出错:"+responseEntity.getStatusCode().toString());
         }
+    }
+
+    public <R> R queryTemplate(Function3<R,List<List<Object>>,List<String>,List<Integer>> function,
+                             final String sql, Object... args){
+        QueryRequest request = new QueryRequest();
+        HttpEntity httpEntity = assembleHttpEntity(request,sql, args);
+
+        return exchange(new Function<QueryResponse,R>() {
+            @Override
+            public R apply(QueryResponse resp) {
+                List<List<Object>> rows = resp.getRowList();
+                List<String> cols = resp.getColList();
+                List<Integer> types = resp.getTypeList();
+
+                return function.action(rows,cols,types);
+            }
+        },_baseUrl + "/query",httpEntity,QueryResponse.class);
+
+//        ResponseEntity<QueryResponse> responseEntity = _restTemplate.exchange(_baseUrl + "/query", HttpMethod.POST,httpEntity,QueryResponse.class);
+//        if(responseEntity.getBody() != null){
+//            QueryResponse resp = responseEntity.getBody();
+//            log.debug("query {}",resp);
+//            if (Objects.equals(Constants.SUCCESS, resp.getCode())) {
+//                List<List<Object>> rows = resp.getRowList();
+//                List<String> cols = resp.getColList();
+//                List<Integer> types = resp.getTypeList();
+//
+//                return function.action(rows,cols,types);
+//            } else {
+//                log.error(resp.getMessage());
+//                throw new RuntimeException(resp.getMessage());
+//            }
+//        }else{
+//            throw new RuntimeException("远程访问出错:"+responseEntity.getStatusCode().toString());
+//        }
     }
 
     @Override
@@ -177,9 +223,7 @@ public class JdbcOperationClientImpl implements JdbcOperationClient {
             }
             return ret;
         },sql,args);
-
     }
-
 
     @Override
     public <T> T queryForObject(String sql, DBRowMapper<T> rowMapper)  {
@@ -188,149 +232,91 @@ public class JdbcOperationClientImpl implements JdbcOperationClient {
 
     @Override
     public <T> T queryForObject(final String sql,final DBRowMapper<T> rowMapper, Object... args)  {
-        List<T> ret = queryTemplate((rows, cols, types) -> {
-            List<T> ret1 = new ArrayList<>(1);
+//        QueryRequest request = new QueryRequest();
+//        HttpEntity httpEntity = assembleHttpEntity(request,sql, args);
+//
+//        return exchange(new Function<QueryResponse,T>() {
+//            @Override
+//            public T apply(QueryResponse resp) {
+//                List<List<Object>> rows = resp.getRowList();
+//                List<String> cols = resp.getColList();
+//                List<Integer> types = resp.getTypeList();
+//                if(rows.size()>0){
+//                    return rowMapper.mapRow(new DefaultDBRow(rows.get(0), cols, types));
+//                }else{
+//                    return null;
+//                }
+//            }
+//        },_baseUrl + "/query",httpEntity,QueryResponse.class);
+
+        return queryTemplate((rows, cols, types) -> {
             if(rows.size()>0){
-                ret1.add(rowMapper.mapRow(new DefaultDBRow(rows.get(0), cols, types)));
+                return rowMapper.mapRow(new DefaultDBRow(rows.get(0), cols, types));
+            }else{
+                return null;
             }
-            return ret1;
         },sql,args);
 
-        if(ret.size()>0){
-            return ret.get(0);
-        }else{
-            return null;
-        }
     }
 
     @Override
     public <T> T queryForObject(final String sql,final Class<T> requiredType, Object... args)  {
-        List<T> ret = queryTemplate((rows, cols, types) -> {
-            List<T> ret1 = new ArrayList<>(1);
+        return queryTemplate((rows, cols, types) -> {
             if(rows.size()>0){
-                ret1.add(new DefaultDBRow(rows.get(0),cols,types).getOnlyObject(requiredType));
+                return new DefaultDBRow(rows.get(0),cols,types).getOnlyObject(requiredType);
+            }else{
+                return null;
             }
-            return ret1;
         },sql,args);
 
-        if(ret.size()>0){
-            return ret.get(0);
-        }else{
-            return null;
-        }
     }
-//
-//    @Override
-//    public Observable<DBRow> queryForRowSet(String sql, Object... args){
-//        QueryRequest request = new QueryRequest();
-//        request.setParameters(convert(args));
-//        request.setQuery(sql);
-//        request.setProject(_project);
-//        request.setDatabase(_database);
-//        return _signalClient.interaction().request(request).<QueryResponse>build().map(new Func1<QueryResponse, DBRow>() {
-//            @Override
-//            public DBRow call(final QueryResponse resp) {
-//                LOG.debug("query {}",resp);
-//                if(Objects.equals("0", resp.getCode())){
-//                    List<List<Object>> rows = resp.getRowList();
-//                    List<String> cols = resp.getColList();
-//                    List<Integer> types = resp.getTypeList();
-//
-//                    if(rows.size()>0){
-//                        return new DefaultDBRow(rows.get(0),cols,types);
-//                    }else{
-//                        return null;
-//                    }
-//                }else{
-//                    LOG.error(resp.getMessage());
-//                    throw new RuntimeException(resp.getMessage());
-//                }
-//            }
-//        });
-//
-//    }
-//    @Override
-//    public Observable<Integer> update(String sql)  {
-//        return this.update(sql,null);
-//    }
-//    @Override
-//    public <T> Observable<T> updateAndNeedReturnId(String sql, Object... args)  {
-//        UpdateRequest request = new UpdateRequest();
-//        request.setParameters(convert(args));
-//        request.setQuery(sql);
-//        request.setProject(_project);
-//        request.setDatabase(_database);
-//        request.setNeedReturnId(true);
-//        return this.update(request);
-//    }
-//    @Override
-//    public Observable<Integer> update(String sql, Object... args)  {
-//        UpdateRequest request = new UpdateRequest();
-//        request.setParameters(convert(args));
-//        request.setQuery(sql);
-//        request.setProject(_project);
-//        request.setDatabase(_database);
-//        request.setNeedReturnId(false);
-//        return this.update(request);
-//    }
-//
-//    private <T> Observable<T> update(UpdateRequest request){
-//        return _signalClient.interaction().request(request).<UpdateResponse>build().map(new Func1<UpdateResponse, T>() {
-//            @Override
-//            public T call(final UpdateResponse resp) {
-//                if (Objects.equals("0", resp.getCode())) {
-//                    if (resp.getReturnId() != null) {
-//                        return (T) resp.getReturnId();
-//                    } else {
-//                        return (T) resp.getRowCount();
-//                    }
-//                } else {
-//                    LOG.error(resp.getMessage());
-//                    throw new RuntimeException(resp.getMessage());
-//                }
-//            }
-//        });
-//    }
-//
-//    @Override
-//    public Observable<int[]> batchUpdate(String sql, List<Object[]> batchArgs)  {
-//        for(Object[] args:batchArgs){
-//            convert(args);
-//        }
-//        BatchUpdateRequest request = new BatchUpdateRequest();
-//        request.setParameters(batchArgs);
-//        request.setQuery(sql);
-//        request.setProject(_project);
-//        request.setDatabase(_database);
-//        return _signalClient.interaction().request(request).<BatchUpdateResponse>build().map(new Func1<BatchUpdateResponse, int[]>() {
-//            @Override
-//            public int[] call(final BatchUpdateResponse resp) {
-//                if (Objects.equals("0", resp.getCode())) {
-//                    return resp.getRowCount();
-//                } else {
-//                    LOG.error(resp.getMessage());
-//                    throw new RuntimeException(resp.getMessage());
-//                }
-//            }
-//        });
-//    }
-//    @Override
-//    public Observable<int[]> batchUpdate(String[] sqls)  {
-//        BatchUpdateRequest request = new BatchUpdateRequest();
-//        request.setQuerys(sqls);
-//        request.setProject(_project);
-//        request.setDatabase(_database);
-//        return _signalClient.interaction().request(request).<BatchUpdateResponse>build().map(new Func1<BatchUpdateResponse, int[]>() {
-//            @Override
-//            public int[] call(final BatchUpdateResponse resp) {
-//                if (Objects.equals("0", resp.getCode())) {
-//                    return resp.getRowCount();
-//                } else {
-//                    LOG.error(resp.getMessage());
-//                    throw new RuntimeException(resp.getMessage());
-//                }
-//            }
-//        });
-//    }
+
+    @Override
+    public DBRow queryForRowSet(String sql, Object... args){
+        return queryTemplate((rows, cols, types) -> {
+            if(rows.size()>0){
+                return  new DefaultDBRow(rows.get(0),cols,types);
+            }else{
+                return null;
+            }
+        },sql,args);
+    }
+    @Override
+    public Integer update(String sql)  {
+        return this.update(false,sql,null);
+    }
+
+    @Override
+    public Integer update(String sql, Object... args)  {
+        return  this.update(false,sql,args);
+    }
+
+    @Override
+    public Integer updateAndNeedReturnId(String sql, Object... args)  {
+        return  this.update(true,sql,args);
+    }
+
+    private Integer update(Boolean needReturnId, String sql, Object... args){
+        UpdateRequest request = new UpdateRequest();
+        request.setNeedReturnId(needReturnId);
+        HttpEntity httpEntity = assembleHttpEntity(request,sql, args);
+
+        return exchange(resp -> {
+            if (resp.getReturnId() != null) {
+                return (Integer) resp.getReturnId();
+            } else {
+                return  resp.getRowCount();
+            }
+        },_baseUrl + "/update",httpEntity,UpdateResponse.class);
+    }
+
+    @Override
+    public int[] batchUpdate(String[] sqls)  {
+        BatchUpdateRequest request = new BatchUpdateRequest();
+        request.setQuerys(sqls);
+        HttpEntity httpEntity = assembleHttpEntity(request,null, null);
+
+        return exchange(resp -> resp.getRowCount(),_baseUrl + "/batchUpdate",httpEntity,BatchUpdateResponse.class);
+    }
 
 }
