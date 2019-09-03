@@ -1,24 +1,20 @@
 package cn.okcoming.dbproxy.client.impl;
 
-import cn.okcoming.dbproxy.bean.*;
+import cn.okcoming.dbproxy.bean.QueryRequest;
+import cn.okcoming.dbproxy.bean.QueryResponse;
 import cn.okcoming.dbproxy.client.JdbcOperationClient;
-import cn.okcoming.dbproxy.core.DBRow;
 import cn.okcoming.dbproxy.core.DBRowMapper;
 import cn.okcoming.dbproxy.core.DefaultDBRow;
 import cn.okcoming.dbproxy.util.Constants;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.*;
 import org.springframework.web.client.RestTemplate;
-import rx.functions.Func1;
-
 
 import java.text.SimpleDateFormat;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Supplier;
+
 
 /**
  * Created by bluces on 2016/12/28.
@@ -28,20 +24,16 @@ public class JdbcOperationClientImpl implements JdbcOperationClient {
     private RestTemplate _restTemplate;
     private String _project;
     private String _database;
+    private String _baseUrl;
 
-    public void setRestTemplate(RestTemplate restTemplate){
-        this._restTemplate = restTemplate;
+    public JdbcOperationClientImpl(RestTemplate _restTemplate, String _project, String _database, String _baseUrl) {
+        this._restTemplate = _restTemplate;
+        this._project = _project;
+        this._database = _database;
+        this._baseUrl = _baseUrl;
     }
 
-    public void setProject(String project) {
-        this._project = project;
-    }
-
-    public void setDatabase(String database) {
-        this._database = database;
-    }
-
-    private  <T> T execute(String apiName,String member,Supplier<T> supplier){
+    private  <T> T execute(String apiName, String member, Supplier<T> supplier){
         log.info("http {} api: {}",apiName,member);
         try{
             T ret = supplier.get();
@@ -122,8 +114,13 @@ public class JdbcOperationClientImpl implements JdbcOperationClient {
     public void execute(String sql)  {
     }
 
-    @Override
-    public <T> List<T> queryForList(final String sql, final Class<T> requiredType,Object... args)  {
+    @FunctionalInterface
+    interface Function<R,X,Y,Z>{
+        R action(X x,Y y,Z z);
+    }
+
+    public <T> List<T> queryTemplate(Function<List<T>,List<List<Object>>,List<String>,List<Integer>> function,
+                             final String sql, Object... args){
         QueryRequest request = new QueryRequest();
         request.setParameters(convert(args));
         request.setQuery(sql);
@@ -132,10 +129,9 @@ public class JdbcOperationClientImpl implements JdbcOperationClient {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON_UTF8);
         headers.set(Constants.X_UUID,UUID.randomUUID().toString());
-
         HttpEntity<QueryRequest> httpEntity = new HttpEntity(request,headers);
 
-        ResponseEntity<QueryResponse> responseEntity = _restTemplate.exchange("http://10.100.12.29/dbproxy/query", HttpMethod.POST,httpEntity,QueryResponse.class);
+        ResponseEntity<QueryResponse> responseEntity = _restTemplate.exchange(_baseUrl + "/query", HttpMethod.POST,httpEntity,QueryResponse.class);
         if(responseEntity.getBody() != null){
             QueryResponse resp = responseEntity.getBody();
             log.debug("query {}",resp);
@@ -144,12 +140,7 @@ public class JdbcOperationClientImpl implements JdbcOperationClient {
                 List<String> cols = resp.getColList();
                 List<Integer> types = resp.getTypeList();
 
-                List<T> ret = new ArrayList<>();
-                for (List<Object> row : rows) {//行
-                    T bean = new DefaultDBRow(row, cols, types).getOnlyObject(requiredType);
-                    ret.add(bean);
-                }
-                return ret;
+                return function.action(rows,cols,types);
             } else {
                 log.error(resp.getMessage());
                 throw new RuntimeException(resp.getMessage());
@@ -159,112 +150,75 @@ public class JdbcOperationClientImpl implements JdbcOperationClient {
         }
     }
 
+    @Override
+    public <T> List<T> query(final String sql, final DBRowMapper<T> rowMapper)  {
+        return this.query(sql,rowMapper,null);
+    }
 
-//    @Override
-//    public <T> Observable<List<T>> query(final String sql, final DBRowMapper<T> rowMapper)  {
-//        return this.query(sql,rowMapper,null);
-//    }
-//
     @Override
     public <T> List<T> query(final String sql, final DBRowMapper<T> rowMapper,Object... args)  {
-        QueryRequest request = new QueryRequest();
-        request.setParameters(convert(args));
-        request.setQuery(sql);
-        request.setProject(_project);
-        request.setDatabase(_database);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON_UTF8);
-        headers.set(Constants.X_UUID,UUID.randomUUID().toString());
-
-        HttpEntity<QueryRequest> httpEntity = new HttpEntity(request,headers);
-
-        ResponseEntity<QueryResponse> responseEntity = _restTemplate.exchange("http://10.100.12.29/dbproxy/query", HttpMethod.POST,httpEntity,QueryResponse.class);
-        if(responseEntity.getBody() != null){
-            QueryResponse resp = responseEntity.getBody();
-            log.debug("query {}",resp);
-            if (Objects.equals(Constants.SUCCESS, resp.getCode())) {
-                    List<List<Object>> rows = resp.getRowList();
-                    List<String> cols = resp.getColList();
-                    List<Integer> types = resp.getTypeList();
-
-                    List<T> ret = new ArrayList<>();
-                    for (List<Object> row : rows) {//行
-                        T bean = rowMapper.mapRow(new DefaultDBRow(row, cols, types));
-                        ret.add(bean);
-                    }
-                    return ret;
-            } else {
-                log.error(resp.getMessage());
-                throw new RuntimeException(resp.getMessage());
+        return queryTemplate((rows, cols, types) -> {
+            List<T> ret = new ArrayList<>();
+            for (List<Object> row : rows) {//行
+                T bean = rowMapper.mapRow(new DefaultDBRow(row, cols, types));
+                ret.add(bean);
             }
+            return ret;
+        },sql,args);
+    }
+
+    @Override
+    public <T> List<T> queryForList(final String sql, final Class<T> requiredType,Object... args)  {
+        return queryTemplate((rows, cols, types) -> {
+            List<T> ret = new ArrayList<>();
+            for (List<Object> row : rows) {//行
+                T bean = new DefaultDBRow(row, cols, types).getOnlyObject(requiredType);
+                ret.add(bean);
+            }
+            return ret;
+        },sql,args);
+
+    }
+
+
+    @Override
+    public <T> T queryForObject(String sql, DBRowMapper<T> rowMapper)  {
+        return this.queryForObject(sql,rowMapper,null);
+    }
+
+    @Override
+    public <T> T queryForObject(final String sql,final DBRowMapper<T> rowMapper, Object... args)  {
+        List<T> ret = queryTemplate((rows, cols, types) -> {
+            List<T> ret1 = new ArrayList<>(1);
+            if(rows.size()>0){
+                ret1.add(rowMapper.mapRow(new DefaultDBRow(rows.get(0), cols, types)));
+            }
+            return ret1;
+        },sql,args);
+
+        if(ret.size()>0){
+            return ret.get(0);
         }else{
-            throw new RuntimeException("远程访问出错:"+responseEntity.getStatusCode().toString());
+            return null;
         }
     }
 
-//    @Override
-//    public <T> Observable<T> queryForObject(final String sql,final DBRowMapper<T> rowMapper, Object... args)  {
-//        QueryRequest request = new QueryRequest();
-//        request.setParameters(convert(args));
-//        request.setQuery(sql);
-//        request.setProject(_project);
-//        request.setDatabase(_database);
-//        LOG.debug("query {}",request);
-//        return _signalClient.interaction().request(request).<QueryResponse>build().map(new Func1<QueryResponse, T>() {
-//            @Override
-//            public T call(final QueryResponse resp) {
-//                LOG.debug("query {}",resp);
-//                if (Objects.equals("0", resp.getCode())) {
-//                    List<List<Object>> rows = resp.getRowList();
-//                    List<String> cols = resp.getColList();
-//                    List<Integer> types = resp.getTypeList();
-//                    if(rows.size()>0){
-//                        return rowMapper.mapRow(new DefaultDBRow(rows.get(0), cols, types));
-//                    }else{
-//                        return null;
-//                    }
-//                } else {
-//                    LOG.error(resp.getMessage());
-//                    throw new RuntimeException(resp.getMessage());
-//                }
-//            }
-//        });
-//    }
-//
-//    @Override
-//    public <T> Observable<T> queryForObject(String sql, DBRowMapper<T> rowMapper)  {
-//        return this.queryForObject(sql,rowMapper,null);
-//    }
-//
-//    @Override
-//    public <T> Observable<T> queryForObject(final String sql,final Class<T> requiredType, Object... args)  {
-//        QueryRequest request = new QueryRequest();
-//        request.setParameters(convert(args));
-//        request.setQuery(sql);
-//        request.setProject(_project);
-//        request.setDatabase(_database);
-//        return _signalClient.interaction().request(request).<QueryResponse>build().map(new Func1<QueryResponse, T>() {
-//            @Override
-//            public T call(final QueryResponse resp) {
-//                LOG.debug("query {}",resp);
-//                if (Objects.equals("0", resp.getCode())) {
-//                    List<List<Object>> rows = resp.getRowList();
-//                    List<String> cols = resp.getColList();
-//                    List<Integer> types = resp.getTypeList();
-//
-//                    if(rows.size()>0){
-//                        return new DefaultDBRow(rows.get(0),cols,types).getOnlyObject(requiredType);
-//                    }else{
-//                        return null;
-//                    }
-//                } else {
-//                    LOG.error(resp.getMessage());
-//                    throw new RuntimeException(resp.getMessage());
-//                }
-//            }
-//        });
-//    }
+    @Override
+    public <T> T queryForObject(final String sql,final Class<T> requiredType, Object... args)  {
+        List<T> ret = queryTemplate((rows, cols, types) -> {
+            List<T> ret1 = new ArrayList<>(1);
+            if(rows.size()>0){
+                ret1.add(new DefaultDBRow(rows.get(0),cols,types).getOnlyObject(requiredType));
+            }
+            return ret1;
+        },sql,args);
+
+        if(ret.size()>0){
+            return ret.get(0);
+        }else{
+            return null;
+        }
+    }
 //
 //    @Override
 //    public Observable<DBRow> queryForRowSet(String sql, Object... args){

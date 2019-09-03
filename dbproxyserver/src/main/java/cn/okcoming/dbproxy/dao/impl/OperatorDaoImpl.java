@@ -1,51 +1,53 @@
 package cn.okcoming.dbproxy.dao.impl;
 
-import cn.okcoming.baseutils.ExceptionUtils;
-import cn.okcoming.dbproxy.bean.QueryResponse;
 import cn.okcoming.dbproxy.dao.OperatorDao;
-import cn.okcoming.dbproxy.util.MethodUtils;
-import com.google.common.io.BaseEncoding;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.ArgumentPreparedStatementSetter;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.jdbc.core.PreparedStatementCreator;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.jdbc.support.rowset.SqlRowSet;
-import org.springframework.jdbc.support.rowset.SqlRowSetMetaData;
 import org.springframework.stereotype.Component;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+
+import cn.okcoming.dbproxy.util.DBUtils;
 
 @Slf4j
 @Component
 public class OperatorDaoImpl implements OperatorDao {
 
     @Autowired
-    private JdbcTemplate _jdbcTemplate;
+    private JdbcOperations jdbcOperations;//默认的，也即内嵌的h2database
 
+    private JdbcOperations jdbcTemplate(final String database){
+        if(database == null || Objects.equals(database,"default")) {
+            return jdbcOperations;
+        }else{
+            return DBUtils.jdbcOperations(database);
+        }
+    }
     @Override
-    public SqlRowSet query(String query, Object[] parameters){
-        return _jdbcTemplate.queryForRowSet(query,parameters);
+    public SqlRowSet query(final String database,String query, Object[] parameters){
+        return jdbcTemplate(database).queryForRowSet(query,parameters);
     }
 
     @Override
-    public int update(final String query, final Object[] parameters) {
-        return _jdbcTemplate.update(query, parameters);
+    public int update(final String database,final String query, final Object[] parameters) {
+        return jdbcTemplate(database).update(query, parameters);
     }
 
     @Override
-    public Object updateAndReturnId(final String query, final Object[] parameters) {
+    public Object updateAndReturnId(final String database,final String query, final Object[] parameters) {
         final KeyHolder keyHolder = new GeneratedKeyHolder();
-        this._jdbcTemplate.update(new PreparedStatementCreator() {
+        jdbcTemplate(database).update(new PreparedStatementCreator() {
             @Override
             public PreparedStatement createPreparedStatement(Connection con) throws SQLException {
                 final PreparedStatement ps = con.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);
@@ -58,23 +60,23 @@ public class OperatorDaoImpl implements OperatorDao {
     }
 
     @Override
-    public int[] batchUpdate(String query, List<Object[]> parameters) {
-        return _jdbcTemplate.batchUpdate(query,parameters);
+    public int[] batchUpdate(final String database,String query, List<Object[]> parameters) {
+        return jdbcTemplate(database).batchUpdate(query,parameters);
     }
 
     @Override
-    public int[] batchUpdate(String[] querys) {
-        return _jdbcTemplate.batchUpdate(querys);
+    public int[] batchUpdate(final String database,String[] querys) {
+        return jdbcTemplate(database).batchUpdate(querys);
     }
 
     @Override
-    public void execute(String query) {
-        _jdbcTemplate.execute(query);
+    public void execute(final String database,final String query) {
+        jdbcTemplate(database).execute(query);
     }
 
-    public Object lastInsertID() {
+    public Object lastInsertID(final String database) {
         final KeyHolder keyHolder = new GeneratedKeyHolder();
-        _jdbcTemplate.update(new PreparedStatementCreator(){
+        jdbcTemplate(database).update(new PreparedStatementCreator(){
             @Override
             public PreparedStatement createPreparedStatement(Connection con) throws SQLException {
                 final PreparedStatement ps = con.prepareStatement("SELECT LAST_INSERT_ID()", Statement.RETURN_GENERATED_KEYS);

@@ -1,9 +1,5 @@
 
 
-import cn.okcoming.dbproxy.client.JdbcOperationClient;
-import org.springframework.beans.factory.annotation.Autowired;
-import rx.Observable;
-import rx.functions.Func1;
 
 import java.util.Date;
 import java.util.List;

@@ -30,7 +30,7 @@ public class Swagger2Configuration {
         //添加head参数
         List<Parameter> pars = new ArrayList<>();
         ParameterBuilder tokenPar = new ParameterBuilder();
-        tokenPar.name(Constants.X_UUID).description("每次响应原样返回，方便请求方异步响应").modelRef(new ModelRef("string")).parameterType("header").build();
+        tokenPar.name(Constants.X_UUID).description("每次响应原样返回，方便后续请求方异步响应").modelRef(new ModelRef("string")).parameterType("header").build();
         pars.add(tokenPar.build());
         return new Docket(DocumentationType.SWAGGER_2).apiInfo(buildApiInfo()).select()
                 .apis(RequestHandlerSelectors.basePackage("cn.okcoming.dbproxy.controller")).paths(PathSelectors.any()).build().globalOperationParameters(pars);

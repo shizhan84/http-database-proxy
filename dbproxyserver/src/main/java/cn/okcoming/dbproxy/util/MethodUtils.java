@@ -1,10 +1,7 @@
 package cn.okcoming.dbproxy.util;
 
-import cn.okcoming.baseutils.ExceptionUtils;
 import cn.okcoming.dbproxy.bean.QueryResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.support.rowset.SqlRowSet;
 import org.springframework.jdbc.support.rowset.SqlRowSetMetaData;
 

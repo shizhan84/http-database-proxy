@@ -33,6 +33,10 @@ public interface JdbcOperationClient {
 //
 //    public Observable<int[]> batchUpdate(final String[] sqls);
 
-    public <T> List<T> query(final String sql, final DBRowMapper<T> rowMapper, Object... args) ;
-    public <T> List<T> queryForList(final String sql, final Class<T> requiredType, Object... args);
+    <T> T queryForObject(final String sql, final DBRowMapper<T> rowMapper);
+    <T> T queryForObject(final String sql, final DBRowMapper<T> rowMapper, Object... args);
+    <T> T queryForObject(final String sql, final Class<T> requiredType, Object... args);
+    <T> List<T> query(final String sql, final DBRowMapper<T> rowMapper) ;
+    <T> List<T> query(final String sql, final DBRowMapper<T> rowMapper, Object... args) ;
+    <T> List<T> queryForList(final String sql, final Class<T> requiredType, Object... args);
 }

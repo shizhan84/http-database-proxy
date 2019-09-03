@@ -1,8 +1,4 @@
 spring:
-  datasource:
-    url: jdbc:mysql://192.168.19.81:3306/ynrpt?useUnicode=true&characterEncoding=utf-8&useSSL=true
-    username: root
-    password: ENC(X0KblZwVictx8TKvS0NIb9r7RX4BOGqF)
   security:
     user:
       name: sadmin

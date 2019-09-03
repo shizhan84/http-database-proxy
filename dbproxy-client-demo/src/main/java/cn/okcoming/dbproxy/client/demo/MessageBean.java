@@ -1,10 +1,8 @@
-package cn.okcoming.example;
+package cn.okcoming.dbproxy.client.demo;
 
-import cn.okcoming.baseutils.DateUtils;
+
 import lombok.Data;
 
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.Date;
 
 @Data

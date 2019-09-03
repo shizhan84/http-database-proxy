@@ -10,6 +10,7 @@
     <modules>
         <module>dbproxyserver</module>
         <module>dbproxyapi</module>
+        <module>dbproxy-client-demo</module>
     </modules>
 
 </project>

@@ -8,7 +8,7 @@ abstract class BaseRequest {
 
     @ApiModelProperty(value = "项目名称 只做记录")
     protected String project;
-    @ApiModelProperty(value = "数据库名 目前还没作用")
-    protected String database;
+    @ApiModelProperty(value = "数据库名 默认使用测试内存数据库")
+    protected String database = "default";
 
 }

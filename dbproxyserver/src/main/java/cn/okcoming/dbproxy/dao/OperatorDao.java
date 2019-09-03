@@ -14,7 +14,7 @@ public interface OperatorDao {
      * @return
      * @throws Exception
      */
-    SqlRowSet query(final String query, final Object[] parameters);
+    SqlRowSet query(final String database,final String query, final Object[] parameters);
 
     /**
      * 插入或者更新数据记录
@@ -23,7 +23,7 @@ public interface OperatorDao {
      * @return 受影响的记录条数
      * @throws Exception
      */
-    int update(final String query, final Object[] parameters);
+    int update(final String database,final String query, final Object[] parameters);
 
     /**
      * 插入数据记录并且获取自动生成的主键
@@ -32,7 +32,7 @@ public interface OperatorDao {
      * @return 获取自动生成的主键
      * @throws Exception
      */
-    Object updateAndReturnId(String query, Object[] parameters);
+    Object updateAndReturnId(final String database,String query, Object[] parameters);
 
     /**
      * 指定执行语句 根据参数列表批量执行更新操作
@@ -41,7 +41,7 @@ public interface OperatorDao {
      * @return 返回每一个操作影响到的记录条数集合
      * @throws Exception
      */
-    int[] batchUpdate(String query, List<Object[]> parameters);
+    int[] batchUpdate(final String database,String query, List<Object[]> parameters);
 
     /**
      * 批量执行指定的sql语句
@@ -49,7 +49,7 @@ public interface OperatorDao {
      * @return
      * @throws Exception
      */
-    int[] batchUpdate(String[] querys);
+    int[] batchUpdate(final String database,String[] querys);
 
-    void execute(String query);
+    void execute(final String database,String query);
 }
